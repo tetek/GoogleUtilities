@@ -1394,7 +1394,9 @@ static NSDictionary *gAppFakeInfoDictionary;
 
   id<GULApplicationDelegate> proxiedReturningDelegate =
       (id<GULApplicationDelegate>)returningDelegate;
+#if TARGET_OS_IOS || TARGET_OS_TV
   XCTAssertTrue([proxiedReturningDelegate application:application openURL:url options:@{}]);
+#endif  // TARGET_OS_IOS || TARGET_OS_TV
   XCTAssertTrue([proxiedReturningDelegate application:application
                                  continueUserActivity:userActivity
                                    restorationHandler:^(NSArray *restorableObjects){
@@ -1408,13 +1410,16 @@ static NSDictionary *gAppFakeInfoDictionary;
   [GULAppDelegateSwizzler proxyOriginalDelegate];
 
   id<GULApplicationDelegate> proxiedDelegate = (id<GULApplicationDelegate>)forwardingDelegate;
+#if TARGET_OS_IOS || TARGET_OS_TV
   XCTAssertFalse([proxiedDelegate application:application openURL:url options:@{}]);
+#endif  // TARGET_OS_IOS || TARGET_OS_TV
   XCTAssertFalse([proxiedDelegate application:application
                          continueUserActivity:userActivity
                            restorationHandler:^(NSArray *restorableObjects){
                            }]);
 }
 
+#if TARGET_OS_IOS || TARGET_OS_TV
 /** Tests that the completion handler of a forwarded selector reaches the delegate unchanged. */
 - (void)testForwardingAppDelegateForwardsCompletionHandlers {
   GULApplication *application = [GULApplication sharedApplication];
@@ -1448,6 +1453,7 @@ static NSDictionary *gAppFakeInfoDictionary;
 
   [self waitForExpectations:@[ backgroundSessionCalled, remoteNotificationCalled ] timeout:1];
 }
+#endif  // TARGET_OS_IOS || TARGET_OS_TV
 
 /** Tests that a forwarding App Delegate whose target does not implement a selector falls through
  *  safely rather than raising.
@@ -1468,10 +1474,12 @@ static NSDictionary *gAppFakeInfoDictionary;
       didFailToRegisterForRemoteNotificationsWithError:[NSError errorWithDomain:@"test"
                                                                            code:-1
                                                                        userInfo:nil]]);
+#if TARGET_OS_IOS || TARGET_OS_TV
   XCTAssertNoThrow([proxiedDelegate application:application
                    didReceiveRemoteNotification:@{}
                          fetchCompletionHandler:^(UIBackgroundFetchResult result){
                          }]);
+#endif  // TARGET_OS_IOS || TARGET_OS_TV
 
   __block BOOL continueUserActivityResult = YES;
   XCTAssertNoThrow(continueUserActivityResult = [proxiedDelegate
