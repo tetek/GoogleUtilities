@@ -1384,7 +1384,9 @@ static NSDictionary *gAppFakeInfoDictionary;
 /** Tests that the value returned by the forwarded selector is propagated back to the caller. */
 - (void)testForwardingAppDelegatePropagatesReturnValue {
   GULApplication *application = [GULApplication sharedApplication];
+#if TARGET_OS_IOS || TARGET_OS_TV
   NSURL *url = [NSURL URLWithString:@"https://example.com"];
+#endif  // TARGET_OS_IOS || TARGET_OS_TV
   NSUserActivity *userActivity = [[NSUserActivity alloc] initWithActivityType:@"test"];
 
   GULForwardingTestAppDelegate *returningDelegate = [[GULForwardingTestAppDelegate alloc]
