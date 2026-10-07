@@ -1441,21 +1441,65 @@ static NSDictionary *gAppFakeInfoDictionary;
                           [backgroundSessionCalled fulfill];
                         }];
   XCTAssertNotNil(realDelegate.backgroundSessionCompletionHandler);
-  realDelegate.backgroundSessionCompletionHandler();
+  if (realDelegate.backgroundSessionCompletionHandler) {
+    realDelegate.backgroundSessionCompletionHandler();
+  }
 
   XCTestExpectation *remoteNotificationCalled =
       [self expectationWithDescription:@"remote notification completion handler"];
   [proxiedDelegate application:application
       didReceiveRemoteNotification:@{@"test" : @"test"}
             fetchCompletionHandler:^(UIBackgroundFetchResult result) {
+              XCTAssertEqual(result, UIBackgroundFetchResultNewData);
               [remoteNotificationCalled fulfill];
             }];
   XCTAssertNotNil(realDelegate.remoteNotificationCompletionHandler);
-  realDelegate.remoteNotificationCompletionHandler(UIBackgroundFetchResultNewData);
+  if (realDelegate.remoteNotificationCompletionHandler) {
+    realDelegate.remoteNotificationCompletionHandler(UIBackgroundFetchResultNewData);
+  }
 
   [self waitForExpectations:@[ backgroundSessionCalled, remoteNotificationCalled ] timeout:1];
 }
 #endif  // TARGET_OS_IOS || TARGET_OS_TV
+
+#if (TARGET_OS_IOS || TARGET_OS_TV) && !TARGET_OS_MACCATALYST
+/** Tests that the fetch results of interceptors and a forwarding App Delegate are merged into a
+ *  single call of the original completion handler.
+ */
+- (void)testForwardingAppDelegateMergesFetchResultWithInterceptors {
+  GULApplication *application = [GULApplication sharedApplication];
+  GULForwardingTestAppDelegate *forwardingDelegate = [[GULForwardingTestAppDelegate alloc] init];
+  GULTestAppDelegate *realDelegate = (GULTestAppDelegate *)forwardingDelegate.forwardingTarget;
+
+  GULFakeAppDelegateInterceptor *interceptor = [[GULFakeAppDelegateInterceptor alloc] init];
+  interceptor.onDidReceiveRemoteNotificationWithCompletion =
+      ^(NSDictionary *userInfo, void (^completionHandler)(UIBackgroundFetchResult)) {
+        completionHandler(UIBackgroundFetchResultNoData);
+      };
+
+  [GULApplication sharedApplication].delegate = forwardingDelegate;
+  [GULAppDelegateSwizzler proxyOriginalDelegateIncludingAPNSMethods];
+  [GULAppDelegateSwizzler registerAppDelegateInterceptor:interceptor];
+
+  XCTestExpectation *completionCalled = [self expectationWithDescription:@"Completion called once"];
+  completionCalled.assertForOverFulfill = YES;
+
+  id<GULApplicationDelegate> proxiedDelegate = (id<GULApplicationDelegate>)forwardingDelegate;
+  [proxiedDelegate application:application
+      didReceiveRemoteNotification:@{@"test" : @"test"}
+            fetchCompletionHandler:^(UIBackgroundFetchResult result) {
+              XCTAssertEqual(result, UIBackgroundFetchResultNewData);
+              [completionCalled fulfill];
+            }];
+
+  XCTAssertNotNil(realDelegate.remoteNotificationCompletionHandler);
+  if (realDelegate.remoteNotificationCompletionHandler) {
+    realDelegate.remoteNotificationCompletionHandler(UIBackgroundFetchResultNewData);
+  }
+
+  [self waitForExpectations:@[ completionCalled ] timeout:1];
+}
+#endif  // (TARGET_OS_IOS || TARGET_OS_TV) && !TARGET_OS_MACCATALYST
 
 /** Tests that a forwarding App Delegate whose target does not implement a selector falls through
  *  safely rather than raising.

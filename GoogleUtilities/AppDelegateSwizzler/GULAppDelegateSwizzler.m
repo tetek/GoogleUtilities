@@ -998,17 +998,19 @@ static dispatch_once_t sProxyAppDelegateRemoteNotificationOnceToken;
     didReceiveRemoteNotificationWithCompletionIMP(self, methodSelector, application, userInfo,
                                                   localCompletionHandler);
   } else {
-    if ([GULAppDelegateSwizzler forwardingTargetForProxiedSelector:methodSelector object:self]) {
-      dispatch_group_enter(callbackGroup);
+    dispatch_group_enter(callbackGroup);
 
-      [GULAppDelegateSwizzler
-          forwardSelector:methodSelector
-               fromObject:self
-           argumentSetter:^(NSInvocation *invocation) {
-             [invocation setArgument:(void *)(&application) atIndex:2];
-             [invocation setArgument:(void *)(&userInfo) atIndex:3];
-             [invocation setArgument:(void *)(&localCompletionHandler) atIndex:4];
-           }];
+    NSInvocation *forwardedInvocation = [GULAppDelegateSwizzler
+        forwardSelector:methodSelector
+             fromObject:self
+         argumentSetter:^(NSInvocation *invocation) {
+           [invocation setArgument:(void *)(&application) atIndex:2];
+           [invocation setArgument:(void *)(&userInfo) atIndex:3];
+           [invocation setArgument:(void *)(&localCompletionHandler) atIndex:4];
+         }];
+    // Nothing was forwarded, so the completion handler will never leave the group.
+    if (forwardedInvocation == nil) {
+      dispatch_group_leave(callbackGroup);
     }
   }
 
